@@ -22,11 +22,17 @@ connection: &heatpump_rs233
 
 Copy this folder to `<config_dir>/custom_components/lux_heatpump/`.
 
-Add the following to your `configuration.yaml` file:
+Add the following to your `<config_dir>/configuration.yaml` file:
 
 ```yaml
-# Example configuration.yaml entry
+# Entry in configuration.yaml entry
 sensor:
   - platform: lux_heatpump
 ```
 
+### TODO
+
+- [ ] Add ser2net host:port configuration to configuration.yaml (Currently in sensor.py, line peer = Peer("hostname", 4711)
+- [ ] Add configuration workflow for hostname,port
+- [ ] Add mode indication (off,party,auto)
+- [ ] Add mode configuration (off,party,auto)
