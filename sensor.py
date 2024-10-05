@@ -106,10 +106,6 @@ class HeatpumpSensor2(SensorEntity):
 
         This is the only method that should fetch new data for Home Assistant .
         """
-        host = "baba-cafe"
-        port = 4322
-        #        if host != my_heatpump_engine.host or port != my_heatpump_engine.port:
-
         host, port = peer.get_peer()
         self.eng.poll_for_stats(host, port)
         self._attr_native_value = self.eng.heating_circuit_flow_temp
