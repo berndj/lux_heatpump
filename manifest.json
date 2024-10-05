@@ -1,6 +1,7 @@
 {
   "domain": "lux_heatpump",
-  "name": "Luxtronik v1 heatpump",
+  "name": "lux_heatpump",
+  "version": "2024.10.00",
   "codeowners": ["@berndj"],
   "dependencies": [],
   "documentation": "https://github.com/home-assistant/example-custom-config/tree/master/custom_components/example_sensor/",
