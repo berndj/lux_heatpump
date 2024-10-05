@@ -1,6 +1,5 @@
-# Luxtronik-v1 based heatpump sensor home assistant integration.
+# Home assistant integration for Luxtronik-v1 based heatpump sensors.
 
-This is a home assistant integration for Luxtronik-v1 based heatpumps.
 
 ### Prerequisites
 Luxtronik-v1 board RS-232 is connected to with ser2net.
