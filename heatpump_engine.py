@@ -2,8 +2,23 @@
 
 import socket
 import time
+from enum import IntEnum
 
+class HeatPumpMode(IntEnum):
+    AUTO = 0
+    ZWE = 1
+    PARTY = 2
+    VACATION = 3
+    OFF = 4
+    UNKNOWN = 5
 
+class HeatPumpFunction(IntEnum):
+    TEMPERATURE = 1100
+    HEAT_CIRC = 3405
+    HOT_WATER = 3505
+    UNKNOWN = -1
+
+    
 class heatpump_engine:
     """Engine talking to the heatpump over ser2net."""
 
@@ -21,6 +36,9 @@ class heatpump_engine:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.host = None
         self.port = None
+        self.hot_water_mode = HeatPumpMode.UNKNOWN
+        self.hot_heat_circ_mode = HeatPumpMode.UNKNOWN
+
 
     def align_peer(self, host, port):
         """Update host and port information."""
@@ -47,9 +65,18 @@ class heatpump_engine:
         new_time = int(time.time())
         if new_time - self.epoch_time > 5 or self.polls == 0:
             if 0 == self.maintain_socket(host, port):
-                if 0 != self.trigger_stats():
+                if 0 != self.trigger_stats(HeatPumpFunction.TEMPERATURE):
                     return -1
-                self.readlines()
+                self.readlines(HeatPumpFunction.TEMPERATURE)
+
+                if 0 != self.trigger_stats(HeatPumpFunction.HOT_WATER):
+                    return -1
+                self.readlines(HeatPumpFunction.HOT_WATER)
+
+                if 0 != self.trigger_stats(HeatPumpFunction.HEAT_CIRC):
+                    return -1
+                self.readlines(HeatPumpFunction.HEAT_CIRC)
+
                 self.epoch_time = new_time
                 self.polls += 1
         else:
@@ -87,7 +114,7 @@ class heatpump_engine:
         print('connect ok')
         return 0
 
-    def readlines(self):
+    def readlines(self, function):
         """Read answer from ser2net/heatpump."""
         data = b""
         self.sock.settimeout(0.5)
@@ -104,13 +131,16 @@ class heatpump_engine:
 
         lines = data.split(b"\r\n")
         for line in lines:
-            self.extract_temp(line)
-
+            if function == HeatPumpFunction.TEMPERATURE:
+                self.extract_temp(line)
+            else:
+                self.extract_mode(line, function)
                 
-    def trigger_stats(self):
+    def trigger_stats(self, function):
         """Trigger response from heatpump."""
         # buf = "1800\n\r" # most stats
-        buf = "1100\n\r"  # temperature stats only
+        buf = "" + str(function.value) + "\n\r"  # temperature stats only
+        print(buf)
         try:
             self.sock.send(buf.encode(encoding="utf-8"))
         except BrokenPipeError:
@@ -147,10 +177,43 @@ class heatpump_engine:
             except ValueError:
                 return
 
+    def extract_mode(self, line, function):
+        """Extract temperature values from response."""
+
+        if function == HeatPumpFunction.HEAT_CIRC or function == HeatPumpFunction.HOT_WATER:  
+            ser_str = line.decode("utf-8")
+            tokens = ser_str.split(";")
+            try:
+                cat1 = int(tokens[0])
+                if len(tokens) > 1:
+                    nr_tokens = int(tokens[1])
+                else:
+                    return -1
+            except ValueError:
+                return -1
+        else:
+            return -1
+
+        if cat1 == function.value and nr_tokens == 1 and len(tokens) == nr_tokens+2:
+            for token in tokens:
+                print(token)
+            tokens.pop(0)
+            tokens.pop(0)
+            print(ser_str)
+            if function == HeatPumpFunction.HEAT_CIRC:
+                self.heat_circ_mode = HeatPumpMode(int(tokens[0]))
+            else:
+                self.hot_water_mode = HeatPumpMode(int(tokens[0]))
+
+            
     def print_sensors(self):
         print(
             "=============================================================================="
         )
+        print()
+        print("Heating mode:   \t" + str(self.heat_circ_mode.name))
+        print("Hot water mode: \t" + str(self.hot_water_mode.name))
+        
         print()
         print("Poll=" + str(self.polls) + " Polls_skipped=" + str(self.polls_skipped))
         print("Outdoor temperature\t\t\t\t\t = %s" % (str(self.outdoor_temp)))
