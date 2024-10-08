@@ -1,10 +1,15 @@
 """Heatpump engine module."""
 
+from enum import IntEnum
 import socket
 import time
-from enum import IntEnum
+
+from .const import POLL_INTERVAL
+
 
 class HeatPumpMode(IntEnum):
+    """Heatpump mode."""
+
     AUTO = 0
     ZWE = 1
     PARTY = 2
@@ -12,17 +17,20 @@ class HeatPumpMode(IntEnum):
     OFF = 4
     UNKNOWN = 5
 
+
 class HeatPumpFunction(IntEnum):
+    """Heatpump functions."""
+
     TEMPERATURE = 1100
     HEAT_CIRC = 3405
     HOT_WATER = 3505
     UNKNOWN = -1
 
-    
+
 class heatpump_engine:
     """Engine talking to the heatpump over ser2net."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Init heatpump connection."""
         self.heating_circuit_flow_temp = None
         self.heating_circuit_return_flow_temp_actual = None
@@ -37,8 +45,7 @@ class heatpump_engine:
         self.host = None
         self.port = None
         self.hot_water_mode = HeatPumpMode.UNKNOWN
-        self.hot_heat_circ_mode = HeatPumpMode.UNKNOWN
-
+        self.heat_circ_mode = HeatPumpMode.UNKNOWN
 
     def align_peer(self, host, port):
         """Update host and port information."""
@@ -49,13 +56,13 @@ class heatpump_engine:
     def maintain_socket(self, host, port):
         """Check and repair socket."""
 
-        if True == self.is_socket_closed(self.sock) or port != self.port or host != self.host:
+        if self.is_socket_closed(self.sock) or port != self.port or host != self.host:
             self.align_peer(host, port)
             self.sock.close()
             self.sock = None
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.sock.settimeout(0.1)
-            if -1 == self.connect():
+            if self.connect() == -1:
                 return -1
         return 0
 
@@ -63,17 +70,17 @@ class heatpump_engine:
         """Poll sensor data."""
 
         new_time = int(time.time())
-        if new_time - self.epoch_time > 5 or self.polls == 0:
-            if 0 == self.maintain_socket(host, port):
-                if 0 != self.trigger_stats(HeatPumpFunction.TEMPERATURE):
+        if new_time - self.epoch_time > POLL_INTERVAL or self.polls == 0:
+            if self.maintain_socket(host, port) == 0:
+                if self.trigger_stats(HeatPumpFunction.TEMPERATURE) != 0:
                     return -1
                 self.readlines(HeatPumpFunction.TEMPERATURE)
 
-                if 0 != self.trigger_stats(HeatPumpFunction.HOT_WATER):
+                if self.trigger_stats(HeatPumpFunction.HOT_WATER) != 0:
                     return -1
                 self.readlines(HeatPumpFunction.HOT_WATER)
 
-                if 0 != self.trigger_stats(HeatPumpFunction.HEAT_CIRC):
+                if self.trigger_stats(HeatPumpFunction.HEAT_CIRC) != 0:
                     return -1
                 self.readlines(HeatPumpFunction.HEAT_CIRC)
 
@@ -81,6 +88,8 @@ class heatpump_engine:
                 self.polls += 1
         else:
             self.polls_skipped += 1
+
+        return None
 
     def is_socket_closed(self, sock: socket.socket) -> bool:
         """Check socket closed state."""
@@ -103,15 +112,15 @@ class heatpump_engine:
         try:
             self.sock.connect((self.host, self.port))
         except TimeoutError:
-            print('oops timeout')
+            print("oops timeout")
             return -1
         except ConnectionAbortedError:
-            print('oops abortr')
+            print("oops abortr")
             return -1
         except socket.gaierror:
-            print('oops gaierror')
+            print("oops gaierror")
             return -1
-        print('connect ok')
+        # print("connect ok")
         return 0
 
     def readlines(self, function):
@@ -135,12 +144,11 @@ class heatpump_engine:
                 self.extract_temp(line)
             else:
                 self.extract_mode(line, function)
-                
+
     def trigger_stats(self, function):
         """Trigger response from heatpump."""
-        # buf = "1800\n\r" # most stats
         buf = "" + str(function.value) + "\n\r"  # temperature stats only
-        print(buf)
+        # print(buf)
         try:
             self.sock.send(buf.encode(encoding="utf-8"))
         except BrokenPipeError:
@@ -161,12 +169,12 @@ class heatpump_engine:
         except ValueError:
             return
 
-        if cat1 == 1100 and nr_tokens == 12 and len(tokens) == nr_tokens+2:
-            for token in tokens:
-                print(token)
+        if cat1 == 1100 and nr_tokens == 12 and len(tokens) == nr_tokens + 2:
+            # for token in tokens:
+            #    print(token)
             tokens.pop(0)
             tokens.pop(0)
-            print(ser_str)
+            # print(ser_str)
             try:
                 self.heating_circuit_flow_temp = float(tokens[0]) / 10.0
                 self.heating_circuit_return_flow_temp_actual = float(tokens[1]) / 10.0
@@ -180,7 +188,7 @@ class heatpump_engine:
     def extract_mode(self, line, function):
         """Extract temperature values from response."""
 
-        if function == HeatPumpFunction.HEAT_CIRC or function == HeatPumpFunction.HOT_WATER:  
+        if function in (HeatPumpFunction.HEAT_CIRC, HeatPumpFunction.HOT_WATER):
             ser_str = line.decode("utf-8")
             tokens = ser_str.split(";")
             try:
@@ -194,18 +202,18 @@ class heatpump_engine:
         else:
             return -1
 
-        if cat1 == function.value and nr_tokens == 1 and len(tokens) == nr_tokens+2:
-            for token in tokens:
-                print(token)
+        if cat1 == function.value and nr_tokens == 1 and len(tokens) == nr_tokens + 2:
+            # for token in tokens:
+            #    print(token)
             tokens.pop(0)
             tokens.pop(0)
-            print(ser_str)
+            # print(ser_str)
             if function == HeatPumpFunction.HEAT_CIRC:
                 self.heat_circ_mode = HeatPumpMode(int(tokens[0]))
             else:
                 self.hot_water_mode = HeatPumpMode(int(tokens[0]))
+        return None
 
-            
     def print_sensors(self):
         print(
             "=============================================================================="
@@ -213,7 +221,7 @@ class heatpump_engine:
         print()
         print("Heating mode:   \t" + str(self.heat_circ_mode.name))
         print("Hot water mode: \t" + str(self.hot_water_mode.name))
-        
+
         print()
         print("Poll=" + str(self.polls) + " Polls_skipped=" + str(self.polls_skipped))
         print("Outdoor temperature\t\t\t\t\t = %s" % (str(self.outdoor_temp)))
@@ -243,7 +251,6 @@ class heatpump_engine:
         )
 
 
-
 my_heatpump_engine = heatpump_engine()
 
 
@@ -253,9 +260,3 @@ if __name__ == "__main__":
         conn.poll_for_stats("baba-cafe.local", 4322)
         conn.print_sensors()
         time.sleep(4)
-
-
-
-
-
-        

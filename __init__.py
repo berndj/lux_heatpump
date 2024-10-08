@@ -1,7 +1,5 @@
 """Luxtronik v1 heatpump sensor integration."""
 
-DOMAIN = "lux_heatpump"
-
 
 async def async_setup(hass, config):
     """Integration setup."""

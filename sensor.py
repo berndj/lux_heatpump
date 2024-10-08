@@ -12,14 +12,16 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
+from .const import DOMAIN
+
 # from .heatpump_engine import heatpump_engine
-from .heatpump_engine import my_heatpump_engine
+from .heatpump_engine import HeatPumpMode, my_heatpump_engine
 
 
 class Peer:
     """Representation of the ser2net peer."""
 
-    def __init__(self, host, port):
+    def __init__(self, host, port) -> None:
         """Init sensor."""
         self.host = host
         self.port = port
@@ -38,7 +40,7 @@ class Peer:
         return self.host, self.port
 
 
-peer = Peer("baba-cafe.local", 4322)
+peer = Peer("baba-cafe", 4322)
 
 
 def setup_platform(
@@ -56,8 +58,10 @@ def setup_platform(
     add_entities([HeatpumpSensor6()])
     host, port = peer.get_peer()
 
-    hass.states.async_set("lux_heatpump.host", host)
-    hass.states.async_set("lux_heatpump.port", port)
+    hass.states.set(DOMAIN + ".controller_host", host)
+    hass.states.set(DOMAIN + ".controller_port", port)
+    hass.states.set(DOMAIN + ".heat_circuit_mode", "-")
+    hass.states.set(DOMAIN + ".hot_water_mode", "-")
 
 
 #    my_heatpump_engine.host = str(config["ser2net-host"])
@@ -67,15 +71,17 @@ def setup_platform(
 class HeatpumpSensor1(SensorEntity):
     """Representation of a Sensor."""
 
-    def __init__(self):
-        """Init sensor."""
-        self.eng = my_heatpump_engine
-
     _attr_name = "luxtronik1 Outdoor temperature"
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_unique_id = "baba-cafe:4322:1"
+
+    def __init__(self) -> None:
+        """Init sensor."""
+        self.eng = my_heatpump_engine
+        self.heat_mode_cache = HeatPumpMode.UNKNOWN
+        self.hot_water_mode_cache = HeatPumpMode.UNKNOWN
 
     def update(self) -> None:
         """Fetch new state data for the sensor.
@@ -87,19 +93,31 @@ class HeatpumpSensor1(SensorEntity):
         self.eng.poll_for_stats(host, port)
         self._attr_native_value = self.eng.outdoor_temp
 
+        if self.heat_mode_cache != my_heatpump_engine.heat_circ_mode:
+            self.hass.states.set(
+                DOMAIN + ".heat_circuit_mode", my_heatpump_engine.heat_circ_mode.name
+            )
+            self.heat_mode_cache = my_heatpump_engine.heat_circ_mode
+
+        if self.hot_water_mode_cache != my_heatpump_engine.hot_water_mode:
+            self.hass.states.set(
+                DOMAIN + ".hot_water_mode", my_heatpump_engine.hot_water_mode.name
+            )
+            self.hot_water_mode_cache = my_heatpump_engine.hot_water_mode
+
 
 class HeatpumpSensor2(SensorEntity):
     """Representation of a Sensor."""
-
-    def __init__(self):
-        """Init sensor."""
-        self.eng = my_heatpump_engine
 
     _attr_name = "luxtronik1 heating circuit flow temperature"
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_unique_id = "baba-cafe:4322:2"
+
+    def __init__(self) -> None:
+        """Init sensor."""
+        self.eng = my_heatpump_engine
 
     def update(self) -> None:
         """Fetch new state data for the sensor.
@@ -114,15 +132,15 @@ class HeatpumpSensor2(SensorEntity):
 class HeatpumpSensor3(SensorEntity):
     """Representation of a Sensor."""
 
-    def __init__(self):
-        """Init sensor."""
-        self.eng = my_heatpump_engine
-
     _attr_name = "luxtronik1 heating circuit return flow temperature (actual)"
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_unique_id = "baba-cafe:4322:3"
+
+    def __init__(self) -> None:
+        """Init sensor."""
+        self.eng = my_heatpump_engine
 
     def update(self) -> None:
         """Fetch new state data for the sensor.
@@ -138,15 +156,15 @@ class HeatpumpSensor3(SensorEntity):
 class HeatpumpSensor4(SensorEntity):
     """Representation of a Sensor."""
 
-    def __init__(self):
-        """Init sensor."""
-        self.eng = my_heatpump_engine
-
     _attr_name = "luxtronik1 heating circuit return flow temperature (setpoint)"
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_unique_id = "baba-cafe:4322:4"
+
+    def __init__(self) -> None:
+        """Init sensor."""
+        self.eng = my_heatpump_engine
 
     def update(self) -> None:
         """Fetch new state data for the sensor.
@@ -161,15 +179,15 @@ class HeatpumpSensor4(SensorEntity):
 class HeatpumpSensor5(SensorEntity):
     """Representation of a Sensor."""
 
-    def __init__(self):
-        """Init sensor."""
-        self.eng = my_heatpump_engine
-
     _attr_name = "luxtronik1 hot water temperature (actual)"
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_unique_id = "baba-cafe:4322:5"
+
+    def __init__(self) -> None:
+        """Init sensor."""
+        self.eng = my_heatpump_engine
 
     def update(self) -> None:
         """Fetch new state data for the sensor.
@@ -184,15 +202,15 @@ class HeatpumpSensor5(SensorEntity):
 class HeatpumpSensor6(SensorEntity):
     """Representation of a Sensor."""
 
-    def __init__(self):
-        """Init sensor."""
-        self.eng = my_heatpump_engine
-
     _attr_name = "luxtronik1 hot water temperature (setpoint)"
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_unique_id = "baba-cafe:4322:6"
+
+    def __init__(self) -> None:
+        """Init sensor."""
+        self.eng = my_heatpump_engine
 
     def update(self) -> None:
         """Fetch new state data for the sensor.
