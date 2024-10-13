@@ -72,12 +72,11 @@ class HeatPumpGenStatus(IntEnum):
     HEATING = 0
     HOT_WATER = 1
     EVU_LOCK = 3  # external lock to stop heat pump electric power consumptions under certain conditions e.g. grit usage, price
-    GEN_STATE = 4
-    IDLE =5
+    DEFROST = 4
+    IDLE = 5
+    HEATING_EXT_SOURCE = 6
+    COOLING = 7
     UNKNOWN = -1
-
-    
-
 
 class heatpump_engine:
     """Engine talking to the heatpump over ser2net."""
