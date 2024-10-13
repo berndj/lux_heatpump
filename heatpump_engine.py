@@ -4,7 +4,7 @@ from enum import IntEnum
 import socket
 import time
 
-from .const import POLL_INTERVAL
+from const import POLL_INTERVAL
 
 
 class HeatPumpMode(IntEnum):
