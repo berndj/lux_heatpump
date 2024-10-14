@@ -6,17 +6,19 @@ import socket
 import time
 import re
 
-from const import HeatPumpType, POLL_INTERVAL
+from .const import HeatPumpType, POLL_INTERVAL
 
 
 class HeatPumpMode(IntEnum):
     """Heatpump mode."""
+
     AUTO = 0
     ZWE = 1
     PARTY = 2
     VACATION = 3
     OFF = 4
     UNKNOWN = 5
+
 
 class HeatPumpFunction(IntEnum):
     """Heatpump functions."""
@@ -27,8 +29,10 @@ class HeatPumpFunction(IntEnum):
     GEN_STATUS = 1700
     UNKNOWN = -1
 
+
 class HeatPumpGenStatus(IntEnum):
     """General heatpump status."""
+
     HEATING = 0
     HOT_WATER = 1
     EVU_LOCK = 3  # external lock to stop heat pump electric power consumptions under certain conditions e.g. grit usage, price
@@ -37,6 +41,7 @@ class HeatPumpGenStatus(IntEnum):
     HEATING_EXT_SOURCE = 6
     COOLING = 7
     UNKNOWN = -1
+
 
 class heatpump_engine:
     """Engine talking to the heatpump over ser2net."""
@@ -55,14 +60,15 @@ class heatpump_engine:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.host = None
         self.port = None
+        self.heat_circ_mode = HeatPumpMode.UNKNOWN
         self.hot_water_mode = HeatPumpMode.UNKNOWN
         # gen status record
         self.main_wp_type = HeatPumpType.UNKNOWN
         self.main_sw_status = "unknown"
         self.main_biv_level = -1
         self.main_status = HeatPumpGenStatus.UNKNOWN
-        #self.datetime.datetime(2011, 11, 4, 0, 5, 23)
-        self.main_sys_uptime = datetime.fromisoformat('2000-01-01T00:05:23')
+        # self.datetime.datetime(2011, 11, 4, 0, 5, 23)
+        self.main_sys_uptime = datetime.fromisoformat("2000-01-01T00:05:23")
         self.main_compact = -1
         self.main_comfort = -1
 
@@ -148,7 +154,7 @@ class heatpump_engine:
 
     def readlines(self, function):
         """Read answer from ser2net/heatpump."""
-        #print("readlines: " + str(function.name))
+        # print("readlines: " + str(function.name))
         data = b""
         self.sock.settimeout(0.5)
         while True:
@@ -170,12 +176,11 @@ class heatpump_engine:
                 self.extract_gen_status(line, function)
             else:
                 self.extract_mode(line, function)
-                    
 
     def trigger_stats(self, function):
         """Trigger response from heatpump."""
         buf = "" + str(function.value) + "\n\r"  # temperature stats only
-        #print("trigger_stats: " + str(function.name))
+        # print("trigger_stats: " + str(function.name))
         try:
             self.sock.send(buf.encode(encoding="utf-8"))
         except BrokenPipeError:
@@ -244,13 +249,13 @@ class heatpump_engine:
     def extract_gen_status(self, line, function):
         """Extract general status information from response."""
 
-        #print("extract_gen_status: " + str(function.name) + " START")
+        # print("extract_gen_status: " + str(function.name) + " START")
         ser_str = line.decode("utf-8")
-        pattern = r'[,;]'
+        pattern = r"[,;]"
         tokens = re.split(pattern, ser_str)
-        #tokens = ser_str.split('[,;]')
-        #print("extract_gen_status: " + str(tokens))
-        #for token in tokens:
+        # tokens = ser_str.split('[,;]')
+        # print("extract_gen_status: " + str(tokens))
+        # for token in tokens:
         #    print(token)
         try:
             cat1 = int(tokens[0])
@@ -260,11 +265,11 @@ class heatpump_engine:
                 return -1
         except ValueError:
             return -1
-        #print("extract_gen_status: cat1:" + str(cat1) + " nr_tokens: " + str(nr_tokens))
-        print(tokens)
+        # print("extract_gen_status: cat1:" + str(cat1) + " nr_tokens: " + str(nr_tokens))
+        # print(tokens)
         if cat1 == function.value and nr_tokens == 12 and len(tokens) == nr_tokens + 2:
-            for token in tokens:
-                print(token)
+            # for token in tokens:
+            #    print(token)
             tokens.pop(0)
             tokens.pop(0)
             # print(ser_str)
@@ -273,14 +278,16 @@ class heatpump_engine:
             self.main_biv_level = int(tokens[2])
             self.main_status = HeatPumpGenStatus(int(tokens[3]))
             self.main_sys_uptime = self.main_sys_uptime.replace(day=int(tokens[4]))
-            self.main_sys_uptime = self.main_sys_uptime.replace(month = int(tokens[5]))
-            self.main_sys_uptime = self.main_sys_uptime.replace(year = 2000 + int(tokens[6]))
-            self.main_sys_uptime = self.main_sys_uptime.replace(hour = int(tokens[7]))
-            self.main_sys_uptime = self.main_sys_uptime.replace(minute = int(tokens[8]))
-            self.main_sys_uptime = self.main_sys_uptime.replace(second = int(tokens[9]))
+            self.main_sys_uptime = self.main_sys_uptime.replace(month=int(tokens[5]))
+            self.main_sys_uptime = self.main_sys_uptime.replace(
+                year=2000 + int(tokens[6])
+            )
+            self.main_sys_uptime = self.main_sys_uptime.replace(hour=int(tokens[7]))
+            self.main_sys_uptime = self.main_sys_uptime.replace(minute=int(tokens[8]))
+            self.main_sys_uptime = self.main_sys_uptime.replace(second=int(tokens[9]))
             self.main_compact = int(tokens[10])
             self.main_comfort = int(tokens[11])
-        #print("extract_gen_status: " + str(function.name) + " END")
+        # print("extract_gen_status: " + str(function.name) + " END")
         return None
 
     def print_sensors(self):

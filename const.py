@@ -6,8 +6,10 @@ DOMAIN = "lux_heatpump"
 
 POLL_INTERVAL = 5  # seconds
 
+
 class HeatPumpType(IntEnum):
     """Heatpump type."""
+
     ERC = 0
     SW1 = 1
     SW2 = 2
@@ -20,9 +22,9 @@ class HeatPumpType(IntEnum):
     KSW = 9
     KLW = 10
     SWC = 11
-    LWC = 12
+    ALPHA_INNOTEC_LWC = 12
     L2G = 13
-    WZS =14
+    WZS = 14
     L1I407 = 15
     L2I407 = 16
     L1A407 = 17
