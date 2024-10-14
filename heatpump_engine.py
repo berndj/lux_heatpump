@@ -1,10 +1,12 @@
 """Heatpump engine module."""
 
 from enum import IntEnum
+from datetime import datetime
 import socket
 import time
+import re
 
-from const import POLL_INTERVAL
+from .const import HeatPumpType, POLL_INTERVAL
 
 
 class HeatPumpMode(IntEnum):
@@ -24,6 +26,20 @@ class HeatPumpFunction(IntEnum):
     TEMPERATURE = 1100
     HEAT_CIRC = 3405
     HOT_WATER = 3505
+    GEN_STATUS = 1700
+    UNKNOWN = -1
+
+
+class HeatPumpGenStatus(IntEnum):
+    """General heatpump status."""
+
+    HEATING = 0
+    HOT_WATER = 1
+    EVU_LOCK = 3  # external lock to stop heat pump electric power consumptions under certain conditions e.g. grit usage, price
+    DEFROST = 4
+    IDLE = 5
+    HEATING_EXT_SOURCE = 6
+    COOLING = 7
     UNKNOWN = -1
 
 
@@ -44,8 +60,17 @@ class heatpump_engine:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.host = None
         self.port = None
-        self.hot_water_mode = HeatPumpMode.UNKNOWN
         self.heat_circ_mode = HeatPumpMode.UNKNOWN
+        self.hot_water_mode = HeatPumpMode.UNKNOWN
+        # gen status record
+        self.main_wp_type = HeatPumpType.UNKNOWN
+        self.main_sw_status = "unknown"
+        self.main_biv_level = -1
+        self.main_status = HeatPumpGenStatus.UNKNOWN
+        # self.datetime.datetime(2011, 11, 4, 0, 5, 23)
+        self.main_sys_uptime = datetime.fromisoformat("2000-01-01T00:05:23")
+        self.main_compact = -1
+        self.main_comfort = -1
 
     def align_peer(self, host, port):
         """Update host and port information."""
@@ -83,6 +108,10 @@ class heatpump_engine:
                 if self.trigger_stats(HeatPumpFunction.HEAT_CIRC) != 0:
                     return -1
                 self.readlines(HeatPumpFunction.HEAT_CIRC)
+
+                if self.trigger_stats(HeatPumpFunction.GEN_STATUS) != 0:
+                    return -1
+                self.readlines(HeatPumpFunction.GEN_STATUS)
 
                 self.epoch_time = new_time
                 self.polls += 1
@@ -125,6 +154,7 @@ class heatpump_engine:
 
     def readlines(self, function):
         """Read answer from ser2net/heatpump."""
+        # print("readlines: " + str(function.name))
         data = b""
         self.sock.settimeout(0.5)
         while True:
@@ -142,13 +172,15 @@ class heatpump_engine:
         for line in lines:
             if function == HeatPumpFunction.TEMPERATURE:
                 self.extract_temp(line)
+            elif function == HeatPumpFunction.GEN_STATUS:
+                self.extract_gen_status(line, function)
             else:
                 self.extract_mode(line, function)
 
     def trigger_stats(self, function):
         """Trigger response from heatpump."""
         buf = "" + str(function.value) + "\n\r"  # temperature stats only
-        # print(buf)
+        # print("trigger_stats: " + str(function.name))
         try:
             self.sock.send(buf.encode(encoding="utf-8"))
         except BrokenPipeError:
@@ -214,6 +246,50 @@ class heatpump_engine:
                 self.hot_water_mode = HeatPumpMode(int(tokens[0]))
         return None
 
+    def extract_gen_status(self, line, function):
+        """Extract general status information from response."""
+
+        # print("extract_gen_status: " + str(function.name) + " START")
+        ser_str = line.decode("utf-8")
+        pattern = r"[,;]"
+        tokens = re.split(pattern, ser_str)
+        # tokens = ser_str.split('[,;]')
+        # print("extract_gen_status: " + str(tokens))
+        # for token in tokens:
+        #    print(token)
+        try:
+            cat1 = int(tokens[0])
+            if len(tokens) > 1:
+                nr_tokens = int(tokens[1])
+            else:
+                return -1
+        except ValueError:
+            return -1
+        # print("extract_gen_status: cat1:" + str(cat1) + " nr_tokens: " + str(nr_tokens))
+        # print(tokens)
+        if cat1 == function.value and nr_tokens == 12 and len(tokens) == nr_tokens + 2:
+            # for token in tokens:
+            #    print(token)
+            tokens.pop(0)
+            tokens.pop(0)
+            # print(ser_str)
+            self.main_wp_type = HeatPumpType(int(tokens[0]))
+            self.main_sw_status = str(tokens[1]).strip()
+            self.main_biv_level = int(tokens[2])
+            self.main_status = HeatPumpGenStatus(int(tokens[3]))
+            self.main_sys_uptime = self.main_sys_uptime.replace(day=int(tokens[4]))
+            self.main_sys_uptime = self.main_sys_uptime.replace(month=int(tokens[5]))
+            self.main_sys_uptime = self.main_sys_uptime.replace(
+                year=2000 + int(tokens[6])
+            )
+            self.main_sys_uptime = self.main_sys_uptime.replace(hour=int(tokens[7]))
+            self.main_sys_uptime = self.main_sys_uptime.replace(minute=int(tokens[8]))
+            self.main_sys_uptime = self.main_sys_uptime.replace(second=int(tokens[9]))
+            self.main_compact = int(tokens[10])
+            self.main_comfort = int(tokens[11])
+        # print("extract_gen_status: " + str(function.name) + " END")
+        return None
+
     def print_sensors(self):
         print(
             "=============================================================================="
@@ -239,13 +315,24 @@ class heatpump_engine:
             % (self.heating_circuit_return_flow_temp_setpoint)
         )
         print(
-            "domestic hot water temperature (actual)\t\t\t = %s"
+            "hot water temperature (actual)\t\t\t = %s"
             % (self.domestic_hot_water_temp_actual)
         )
         print(
-            "domestic hot water temperature (setpoint)\t\t = %s"
+            "hot water temperature (setpoint)\t\t = %s"
             % (self.domestic_hot_water_temp_setpoint)
         )
+        print("")
+        print("General status:")
+        print("===============")
+        print("Heat pump type: \t" + str(self.main_wp_type.name))
+        print("System sw-version: \t[" + str(self.main_sw_status) + "]")
+        print("BIV level: \t" + str(self.main_biv_level))
+        print("Operational status: \t" + str(self.main_status.name))
+        print("System uptime: \t" + str(self.main_sys_uptime))
+        print("Compact: \t" + str(self.main_compact))
+        print("Comfort: \t" + str(self.main_comfort))
+
         print(
             "=============================================================================="
         )

@@ -1,6 +1,7 @@
 """Platform for sensor integration."""
 
 from __future__ import annotations
+from datetime import datetime
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -12,10 +13,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
-from .const import DOMAIN
+from .const import DOMAIN, HeatPumpType
 
 # from .heatpump_engine import heatpump_engine
-from .heatpump_engine import HeatPumpMode, my_heatpump_engine
+from .heatpump_engine import HeatPumpMode, my_heatpump_engine, HeatPumpGenStatus
 
 
 class Peer:
@@ -40,7 +41,7 @@ class Peer:
         return self.host, self.port
 
 
-peer = Peer("baba-cafe.local", 4322)
+peer = Peer("baba-cafe", 4322)
 
 
 def setup_platform(
@@ -62,10 +63,16 @@ def setup_platform(
     hass.states.set(DOMAIN + ".controller_port", port)
     hass.states.set(DOMAIN + ".heat_circuit_mode", "-")
     hass.states.set(DOMAIN + ".hot_water_mode", "-")
-
-
-#    my_heatpump_engine.host = str(config["ser2net-host"])
-#    my_heatpump_engine.port = int(config["ser2net-port"])
+    # main states
+    hass.states.set(DOMAIN + ".operational_status", "-")
+    hass.states.set(DOMAIN + ".system_uptime", "-")
+    hass.states.set(DOMAIN + ".heat_pump_type", "-")
+    hass.states.set(DOMAIN + ".software_version", "-")
+    hass.states.set(DOMAIN + ".biv_level", "-")
+    hass.states.set(DOMAIN + ".compact", "-")
+    hass.states.set(DOMAIN + ".comfort", "-")
+    # my_heatpump_engine.host = str(config["ser2net-host"])
+    # my_heatpump_engine.port = int(config["ser2net-port"])
 
 
 class HeatpumpSensor1(SensorEntity):
@@ -82,6 +89,13 @@ class HeatpumpSensor1(SensorEntity):
         self.eng = my_heatpump_engine
         self.heat_mode_cache = HeatPumpMode.UNKNOWN
         self.hot_water_mode_cache = HeatPumpMode.UNKNOWN
+        self.main_wp_type_cache = HeatPumpType.UNKNOWN
+        self.main_sw_status_cache = "-"
+        self.main_biv_level_cache = -1
+        self.main_status_cache = HeatPumpGenStatus.UNKNOWN
+        self.main_sys_uptime_cache = datetime.fromisoformat("2000-01-01T00:05:23")
+        self.main_compact_cache = -1
+        self.main_comfort_cache = -1
 
     def update(self) -> None:
         """Fetch new state data for the sensor.
@@ -104,6 +118,44 @@ class HeatpumpSensor1(SensorEntity):
                 DOMAIN + ".hot_water_mode", my_heatpump_engine.hot_water_mode.name
             )
             self.hot_water_mode_cache = my_heatpump_engine.hot_water_mode
+
+        if self.main_wp_type_cache != my_heatpump_engine.main_wp_type:
+            self.hass.states.set(
+                DOMAIN + ".heat_pump_type", my_heatpump_engine.main_wp_type.name
+            )
+            self.main_wp_type_cache = my_heatpump_engine.main_wp_type
+
+        if self.main_sw_status_cache != my_heatpump_engine.main_sw_status:
+            self.hass.states.set(
+                DOMAIN + ".software_version", my_heatpump_engine.main_sw_status
+            )
+            self.main_sw_status_cache = my_heatpump_engine.main_sw_status
+
+        if self.main_biv_level_cache != my_heatpump_engine.main_biv_level:
+            self.hass.states.set(
+                DOMAIN + ".biv_level", my_heatpump_engine.main_biv_level
+            )
+            self.main_biv_level_cache = my_heatpump_engine.main_biv_level
+
+        if self.main_status_cache != my_heatpump_engine.main_status:
+            self.hass.states.set(
+                DOMAIN + ".operational_status", my_heatpump_engine.main_status.name
+            )
+            self.main_status_cache = my_heatpump_engine.main_status
+
+        if self.main_sys_uptime_cache != my_heatpump_engine.main_sys_uptime:
+            self.hass.states.set(
+                DOMAIN + ".system_uptime", my_heatpump_engine.main_sys_uptime
+            )
+            self.main_sys_uptime_cache = my_heatpump_engine.main_sys_uptime
+
+        if self.main_compact_cache != my_heatpump_engine.main_compact:
+            self.hass.states.set(DOMAIN + ".compact", my_heatpump_engine.main_compact)
+            self.main_compact_cache = my_heatpump_engine.main_compact
+
+        if self.main_comfort_cache != my_heatpump_engine.main_comfort:
+            self.hass.states.set(DOMAIN + ".comfort", my_heatpump_engine.main_comfort)
+            self.main_comfort_cache = my_heatpump_engine.main_comfort
 
 
 class HeatpumpSensor2(SensorEntity):
