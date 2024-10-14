@@ -22,7 +22,7 @@ class HeatPumpType(IntEnum):
     KSW = 9
     KLW = 10
     SWC = 11
-    ALPHA_INNOTEC_LWC = 12
+    LWC = 12
     L2G = 13
     WZS = 14
     L1I407 = 15
