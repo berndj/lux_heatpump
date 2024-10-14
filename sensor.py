@@ -41,7 +41,7 @@ class Peer:
         return self.host, self.port
 
 
-peer = Peer("baba-cafe", 4322)
+peer = Peer("baba-cafe.local", 4322)
 
 
 def setup_platform(
