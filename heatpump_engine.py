@@ -1,12 +1,15 @@
 """Heatpump engine module."""
 
-from enum import IntEnum
 from datetime import datetime
+from enum import IntEnum
+import re
 import socket
 import time
-import re
 
-from .const import HeatPumpType, POLL_INTERVAL
+if __name__ != "__main__":
+    from config.custom_components.lux_heatpump.const import POLL_INTERVAL, HeatPumpType
+else:
+    from const import POLL_INTERVAL, HeatPumpType
 
 
 class HeatPumpMode(IntEnum):
@@ -23,6 +26,7 @@ class HeatPumpMode(IntEnum):
 class HeatPumpFunction(IntEnum):
     """Heatpump functions."""
 
+    UNIQUE_ID = 0
     TEMPERATURE = 1100
     HEAT_CIRC = 3405
     HOT_WATER = 3505
@@ -71,6 +75,7 @@ class heatpump_engine:
         self.main_sys_uptime = datetime.fromisoformat("2000-01-01T00:05:23")
         self.main_compact = -1
         self.main_comfort = -1
+        self.mac_id = "-"
 
     def align_peer(self, host, port):
         """Update host and port information."""
@@ -97,6 +102,7 @@ class heatpump_engine:
         new_time = int(time.time())
         if new_time - self.epoch_time > POLL_INTERVAL or self.polls == 0:
             if self.maintain_socket(host, port) == 0:
+                self.readlines(HeatPumpFunction.UNIQUE_ID)
                 if self.trigger_stats(HeatPumpFunction.TEMPERATURE) != 0:
                     return -1
                 self.readlines(HeatPumpFunction.TEMPERATURE)
@@ -174,6 +180,8 @@ class heatpump_engine:
                 self.extract_temp(line)
             elif function == HeatPumpFunction.GEN_STATUS:
                 self.extract_gen_status(line, function)
+            elif function == HeatPumpFunction.UNIQUE_ID:
+                self.extract_mac_id(line)
             else:
                 self.extract_mode(line, function)
 
@@ -186,6 +194,20 @@ class heatpump_engine:
         except BrokenPipeError:
             return -1
         return 0
+
+    def extract_mac_id(self, line):
+        """Extract temperature values from response."""
+
+        ser_str = line.decode("utf-8")
+        tokens = ser_str.split("uid=")
+
+        try:
+            if len(tokens) > 1:
+                self.mac_id = str(tokens[1]).strip()
+            else:
+                return
+        except ValueError:
+            return
 
     def extract_temp(self, line):
         """Extract temperature values from response."""
@@ -295,6 +317,7 @@ class heatpump_engine:
             "=============================================================================="
         )
         print()
+        print("Unique ID:      \t" + self.mac_id)
         print("Heating mode:   \t" + str(self.heat_circ_mode.name))
         print("Hot water mode: \t" + str(self.hot_water_mode.name))
 
@@ -344,6 +367,6 @@ my_heatpump_engine = heatpump_engine()
 if __name__ == "__main__":
     conn = heatpump_engine()
     while True:
-        conn.poll_for_stats("baba-cafe.local", 4322)
+        conn.poll_for_stats("baba-cafe", 4322)
         conn.print_sensors()
         time.sleep(4)

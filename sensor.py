@@ -41,7 +41,7 @@ class Peer:
         return self.host, self.port
 
 
-peer = Peer("baba-cafe.local", 4322)
+peer = Peer("baba-cafe", 4322)
 
 
 def setup_platform(
@@ -61,6 +61,7 @@ def setup_platform(
 
     hass.states.set(DOMAIN + ".controller_host", host)
     hass.states.set(DOMAIN + ".controller_port", port)
+    hass.states.set(DOMAIN + ".controller_mac", "-")
     hass.states.set(DOMAIN + ".heat_circuit_mode", "-")
     hass.states.set(DOMAIN + ".hot_water_mode", "-")
     # main states
@@ -96,6 +97,7 @@ class HeatpumpSensor1(SensorEntity):
         self.main_sys_uptime_cache = datetime.fromisoformat("2000-01-01T00:05:23")
         self.main_compact_cache = -1
         self.main_comfort_cache = -1
+        self.controller_mac_addr_cache = "-"
 
     def update(self) -> None:
         """Fetch new state data for the sensor.
@@ -156,6 +158,12 @@ class HeatpumpSensor1(SensorEntity):
         if self.main_comfort_cache != my_heatpump_engine.main_comfort:
             self.hass.states.set(DOMAIN + ".comfort", my_heatpump_engine.main_comfort)
             self.main_comfort_cache = my_heatpump_engine.main_comfort
+
+        if self.controller_mac_addr_cache != my_heatpump_engine.mac_id:
+            self.hass.states.set(DOMAIN + ".controller_mac", my_heatpump_engine.mac_id)
+            self.controller_mac_addr_cache = my_heatpump_engine.mac_id
+            # if self._attr_unique_id != my_heatpump_engine.mac_id:
+            #    self._attr_unique_id = my_heatpump_engine.mac_id
 
 
 class HeatpumpSensor2(SensorEntity):
