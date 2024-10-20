@@ -7,7 +7,7 @@ import socket
 import time
 
 if __name__ != "__main__":
-    from config.custom_components.lux_heatpump.const import POLL_INTERVAL, HeatPumpType
+    from .const import POLL_INTERVAL, HeatPumpType
 else:
     from const import POLL_INTERVAL, HeatPumpType
 
