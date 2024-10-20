@@ -59,8 +59,6 @@ def setup_platform(
     add_entities([HeatpumpSensor6()])
     host, port = peer.get_peer()
 
-    hass.states.set(DOMAIN + ".controller_host", host)
-    hass.states.set(DOMAIN + ".controller_port", port)
     hass.states.set(DOMAIN + ".controller_mac", "-")
     hass.states.set(DOMAIN + ".heat_circuit_mode", "-")
     hass.states.set(DOMAIN + ".hot_water_mode", "-")
@@ -72,8 +70,11 @@ def setup_platform(
     hass.states.set(DOMAIN + ".biv_level", "-")
     hass.states.set(DOMAIN + ".compact", "-")
     hass.states.set(DOMAIN + ".comfort", "-")
-    # my_heatpump_engine.host = str(config["ser2net-host"])
-    # my_heatpump_engine.port = int(config["ser2net-port"])
+    my_heatpump_engine.host = str(config["ser2net-host"])
+    my_heatpump_engine.port = int(config["ser2net-port"])
+    peer.set_peer(my_heatpump_engine.host, my_heatpump_engine.port)
+    hass.states.set(DOMAIN + ".controller_host", peer.host)
+    hass.states.set(DOMAIN + ".controller_port", peer.port)
 
 
 class HeatpumpSensor1(SensorEntity):
